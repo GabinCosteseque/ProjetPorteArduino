@@ -10,8 +10,8 @@ rgb_lcd lcd;
 SoftwareSerial nfcmodule(12, 13);
 PN532_SWHSU pn532swhsu(nfcmodule);
 NfcAdapter nfc(pn532swhsu);
-//String Route0 = "http://192.168.86.84:8080/serrure/badge";
-String Route1 = "http://192.168.191.84:8080/serrure/auth";
+String Route0 = "http://192.168.102.84:8080/serrure/badge";
+String Route1 = "http://192.168.102.84:8080/serrure/auth";
 String ID = "Camping";
 String MDP = "camping31";
 SoftwareSerial mySerial(0, 2);
@@ -44,9 +44,10 @@ void loop()
 
   if (nfc.tagPresent()) 
   {
-    NfcTag tag = nfc.read();
-    Code = tag.getUidString();
-    //Reponse_API = Envoi_Code_API(Code, Route0);
+    Code = Badge();
+    Serial.println(Code);
+    Reponse_API = Envoi_Code_API(Code, Route0);
+    delay(500);
   }
   else if (mySerial.available()) 
   {
@@ -76,31 +77,42 @@ void loop()
   }
 }
 
+String Badge() {
+  String code;
+  String result;
+  NfcTag tag = nfc.read();
+  code = tag.getUidString();
+  for (int i = 0; i < code.length(); i++) {
+    if (code[i] != ' ') {
+      result += code[i];
+    }
+  }
+  return result;
+}
+
+
 String Clavier() 
 {
     uint8_t data = mySerial.read();
-    if (data == 0xEA) 
-    {
-      if (input.length() > 0) 
-      {
-        input.remove(input.length() - 1);
-        lcd.clear();
-        lcd.print(input);
-      }
-    } 
-    else if (input.length() < 8 && data >= 0xE1 && data <= 0xE9) 
+        if (input.length() < 6 && data >= 0xE1 && data <= 0xE9) 
     {
       input += (char)(data - 0xE0 + '0');
       lcd.clear();
       lcd.print(input);
     } 
-    else if (input.length() < 8 && data == 0xEB) 
+    else if (input.length() < 6 && data == 0xEB) 
     {
       input += '0';
       lcd.clear();
       lcd.print(input);
     } 
-    else if (data == 0xEC) 
+    else if ((data == 0xEA) && (input.length() > 0)) 
+    {
+        input.remove(input.length() - 1);
+        lcd.clear();
+        lcd.print(input);
+    } 
+    else if ((data == 0xEC)  && (input.length() == 6)) 
     {
       lcd.setCursor(0, 1);
       lcd.print("Analyse...");
@@ -118,12 +130,12 @@ String Envoi_Code_API(String Code, String Route)
     WiFiClient client;
     HTTPClient http;
     DynamicJsonDocument doc(1024);
-    /*if (Route == Route0)
+    if (Route == Route0)
     {
     http.begin(client, Route0);  
     doc["Token"] = TokenDoor;
     doc["Badge"] = Code;
-    }*/
+    }
      if (Route == Route1)
     {
     http.begin(client, Route1);
